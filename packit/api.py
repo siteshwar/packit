@@ -2053,6 +2053,46 @@ The first dist-git commit to be synced is '{short_hash}'.
             report_func=report_func,
         )
 
+    def run_osh_build(
+        self,
+        chroot: Optional[str] = "fedora-rawhide-x86_64",
+        srpm_path: Optional[Path] = None,
+        upstream_ref: Optional[str] = None,
+        release_suffix: Optional[str] = None,
+        base_srpm: Optional[Path] = None,
+        comment: Optional[str] = "Submitted through PackIt.",
+    ) -> str:
+        """
+        Perform a build through OpenScanHub.
+        """
+        # `osh-cli` requires a kerberos ticket.
+        self.init_kerberos_ticket()
+
+        if not srpm_path:
+            srpm_path = self.create_srpm(
+                upstream_ref=upstream_ref,
+                srpm_dir=self.up.local_project.working_dir,
+                release_suffix=release_suffix,
+            )
+
+        if base_srpm:
+            cmd = ["osh-cli",
+                    "version-diff-build",
+                    "--srpm=" + str(srpm_path),
+                    "--base-srpm=" + base_srpm]
+        else:
+            cmd = ["osh-cli",
+                    "mock-build",
+                    str(srpm_path)]
+
+        cmd.append("--config=" + str(chroot))
+        cmd.append("--nowait")
+        cmd.append("--comment=" + comment)
+
+        cmd_result = self.up.command_handler.run_command(cmd, return_output=True)
+        build_url = cmd_result.stdout.split(' ')[-1].strip()
+        return build_url
+
     def push_bodhi_update(self, update_alias: str):
         """Push selected bodhi update from testing to stable."""
         from bodhi.client.bindings import UpdateNotFound
