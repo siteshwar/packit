@@ -2031,6 +2031,50 @@ The first dist-git commit to be synced is '{short_hash}'.
             report_func=report_func,
         )
 
+    def run_osh_build(
+        self,
+        chroot: Optional[str] = "fedora-rawhide-x86_64",
+        srpm_path: Optional[Path] = None,
+        upstream_ref: Optional[str] = None,
+        release_suffix: Optional[str] = None,
+        srpm_version_diff: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> str:
+        """
+        """
+        import subprocess
+
+        if not srpm_path:
+            srpm_path = self.create_srpm(
+                upstream_ref=upstream_ref,
+                srpm_dir=self.up.local_project.working_dir,
+                release_suffix=release_suffix,
+            )
+
+        if srpm_version_diff:
+            args = ["osh-cli",
+                    "version-diff-build",
+                    "--config=" + str(chroot),
+                    "--srpm=" + str(srpm_path),
+                    "--base-srpm=" + srpm_version_diff,
+                    "--nowait",
+                    "--comment",
+                    comment]
+        else:
+            args = ["osh-cli",
+                    "mock-build",
+                    "--config=" + str(chroot),
+                    str(srpm_path),
+                    "--nowait",
+                    "--comment",
+                    comment]
+
+        completed_process = subprocess.run(args, capture_output=True)
+        completed_process_stdout = completed_process.stdout.decode('utf-8')
+        build_url = completed_process_stdout.split(' ')[-1].strip()
+        return build_url
+
+
     def push_bodhi_update(self, update_alias: str):
         """Push selected bodhi update from testing to stable."""
         from bodhi.client.bindings import UpdateNotFound
